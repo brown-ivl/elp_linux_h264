@@ -1870,7 +1870,7 @@ static int uvc_probe(struct usb_interface *intf,
 			sizeof(dev->mdev.serial));
 	strcpy(dev->mdev.bus_info, udev->devpath);
 	dev->mdev.hw_revision = le16_to_cpu(udev->descriptor.bcdDevice);
-	dev->mdev.driver_version = LINUX_VERSION_CODE;
+	//dev->mdev.driver_version = LINUX_VERSION_CODE;
 	if (media_device_register(&dev->mdev) < 0)
 		goto error;
 
