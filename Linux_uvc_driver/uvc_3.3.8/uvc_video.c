@@ -423,7 +423,7 @@ uvc_video_clock_decode(struct uvc_streaming *stream, struct uvc_buffer *buf,
 	stream->clock.last_sof = dev_sof;
 
 	host_sof = usb_get_current_frame_number(stream->dev->udev);
-	ktime_get_ts(&ts);
+	ktime_get_ts64(&ts);
 
 	/* The UVC specification allows device implementations that can't obtain
 	 * the USB frame number to keep their own frame counters as long as they
@@ -651,7 +651,7 @@ void uvc_video_clock_update(struct uvc_streaming *stream,
 	if (x1 == x2)
 		goto done;
 
-	ts = timespec_sub(last->host_ts, first->host_ts);
+	ts = timespec64_sub(last->host_ts, first->host_ts);
 	y1 = NSEC_PER_SEC;
 	y2 = (ts.tv_sec + 1) * NSEC_PER_SEC + ts.tv_nsec;
 
@@ -678,11 +678,11 @@ void uvc_video_clock_update(struct uvc_streaming *stream,
 		ts.tv_nsec -= NSEC_PER_SEC;
 	}
 
-	uvc_trace(UVC_TRACE_CLOCK, "%s: SOF %u.%06llu y %llu ts %lu.%06lu "
+	uvc_trace(UVC_TRACE_CLOCK, "%s: SOF %u.%06llu y %llu ts %lld.%06lld "
 		  "buf ts %lu.%06lu (x1 %u/%u/%u x2 %u/%u/%u y1 %u y2 %u)\n",
 		  stream->dev->name,
 		  sof >> 16, div_u64(((u64)sof & 0xffff) * 1000000LLU, 65536),
-		  y, ts.tv_sec, ts.tv_nsec / NSEC_PER_USEC,
+		  y, (long long)ts.tv_sec, (long long)(ts.tv_nsec / NSEC_PER_USEC),
 		  v4l2_buf->timestamp.tv_sec, v4l2_buf->timestamp.tv_usec,
 		  x1, first->host_sof, first->dev_sof,
 		  x2, last->host_sof, last->dev_sof, y1, y2);
@@ -705,13 +705,13 @@ static void uvc_video_stats_decode(struct uvc_streaming *stream,
 	unsigned int header_size;
 	bool has_pts = false;
 	bool has_scr = false;
-	u16 uninitialized_var(scr_sof);
-	u32 uninitialized_var(scr_stc);
-	u32 uninitialized_var(pts);
+	u16 scr_sof = 0;
+	u32 scr_stc = 0;
+	u32 pts = 0;
 
 	if (stream->stats.stream.nb_frames == 0 &&
 	    stream->stats.frame.nb_packets == 0)
-		ktime_get_ts(&stream->stats.stream.start_ts);
+		ktime_get_ts64(&stream->stats.stream.start_ts);
 
 	switch (data[1] & (UVC_STREAM_PTS | UVC_STREAM_SCR)) {
 	case UVC_STREAM_PTS | UVC_STREAM_SCR:
@@ -907,7 +907,7 @@ static void uvc_video_stats_start(struct uvc_streaming *stream)
 
 static void uvc_video_stats_stop(struct uvc_streaming *stream)
 {
-	ktime_get_ts(&stream->stats.stream.stop_ts);
+	ktime_get_ts64(&stream->stats.stream.stop_ts);
 }
 
 /* ------------------------------------------------------------------------
@@ -1014,14 +1014,12 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 		}
 
 		if (uvc_clock_param == CLOCK_MONOTONIC)
-			ktime_get_ts(&ts);
+			ktime_get_ts64(&ts);
 		else
-			ktime_get_real_ts(&ts);
+			ktime_get_real_ts64(&ts);
 
-		buf->buf.v4l2_buf.sequence = stream->sequence;
-		buf->buf.v4l2_buf.timestamp.tv_sec = ts.tv_sec;
-		buf->buf.v4l2_buf.timestamp.tv_usec =
-			ts.tv_nsec / NSEC_PER_USEC;
+		/* Set sequence number and timestamp directly on vb2_buffer */
+		buf->buf.timestamp = (u64)ts.tv_sec * NSEC_PER_SEC + ts.tv_nsec;
 
 		/* TODO: Handle PTS and SCR. */
 		buf->state = UVC_BUF_STATE_ACTIVE;
@@ -1193,7 +1191,8 @@ static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
 				mem = buf->mem+4;
 				h264_decode_seq_parameter_set(mem, buf->bytesused, &width, &height);
 				//printk("[w,h]=[%d,%d](%d)\n", width, height,  buf->bytesused);
-				buf->buf.v4l2_buf.reserved = ((width & 0xFFFF) << 16) | (height & 0xFFFF);
+				/* TODO: Store width/height metadata in kernel 5.10 compatible way */
+				//buf->buf.v4l2_buf.reserved = ((width & 0xFFFF) << 16) | (height & 0xFFFF);
 			}
 #ifdef PATCH_OF_RER9420_MJPG_EOF_LOST 
 			if(stream->dev->RER_Chip == CHIP_RER9420 && 
@@ -1259,7 +1258,8 @@ static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
 				// Get JPEG Width and Height
 				width = (*(mem+9)<<8)|(*(mem+10));
 				height = (*(mem+7)<<8)|(*(mem+8));
-				buf->buf.v4l2_buf.reserved = ((width & 0xFFFF) << 16) | (height & 0xFFFF);
+				/* TODO: Store width/height metadata in kernel 5.10 compatible way */
+				//buf->buf.v4l2_buf.reserved = ((width & 0xFFFF) << 16) | (height & 0xFFFF);
 
 				if(framesize>0)
 				{
@@ -1291,7 +1291,7 @@ static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
 						mem++;
 					if((mem[0] == 0xFF) && (mem[1] == 0xC4))
 					{
-						memcpy(Next_Marker,  mem, buf->bytesused - ((u32)mem - (u32)buf->mem)  );
+						memcpy(Next_Marker,  mem, buf->bytesused - ((uintptr_t)mem - (uintptr_t)buf->mem)  );
 						buf->bytesused -= (mem - Next_Marker);
 					}
 				}
@@ -1300,7 +1300,8 @@ static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
 			
 				#define MJPG_EOF_9422_REMOVE_MAX_LEN 10
 				if(buf->bytesused<MJPG_EOF_9422_REMOVE_MAX_LEN)
-					buf->buf.v4l2_buf.reserved |= 0x80000000;
+					/* TODO: Store error flag in kernel 5.10 compatible way */
+					/*buf->buf.v4l2_buf.reserved |= 0x80000000*/;
 				else
 				{
 					mem = buf->mem + buf->bytesused - 2 ;
@@ -1314,7 +1315,8 @@ static void uvc_video_decode_isoc(struct urb *urb, struct uvc_streaming *stream,
 						 buf->bytesused = framesize;
 					mem = buf->mem;
 					if(mem[0]!=0xFF || mem[1]!=0xD8 || mem[buf->bytesused-2]!=0xFF || mem[buf->bytesused-1]!=0xD9)
-						buf->buf.v4l2_buf.reserved |= 0x80000000;
+						/* TODO: Store error flag in kernel 5.10 compatible way */
+						/*buf->buf.v4l2_buf.reserved |= 0x80000000*/;
 				}
 			
 				
@@ -1423,7 +1425,9 @@ static void uvc_video_encode_bulk(struct urb *urb, struct uvc_streaming *stream,
 		if (buf->bytesused == stream->queue.buf_used) {
 			stream->queue.buf_used = 0;
 			buf->state = UVC_BUF_STATE_READY;
-			buf->buf.v4l2_buf.sequence = ++stream->sequence;
+			/* TODO: Handle sequence number in kernel 5.10 compatible way */
+			/*buf->buf.v4l2_buf.sequence = ++stream->sequence;*/
+			++stream->sequence;
 			uvc_queue_next_buffer(&stream->queue, buf);
 			stream->last_fid ^= UVC_STREAM_FID;
 		}
@@ -1450,10 +1454,12 @@ static void uvc_video_complete(struct urb *urb)
 	default:
 		uvc_printk(KERN_WARNING, "Non-zero status (%d) in video "
 			"completion handler.\n", urb->status);
+		fallthrough;
 
 	case -ENOENT:		/* usb_kill_urb() called. */
 		if (stream->frozen)
 			return;
+		fallthrough;
 
 	case -ECONNRESET:	/* usb_unlink_urb() called. */
 	case -ESHUTDOWN:	/* The endpoint is being disabled. */
@@ -1711,7 +1717,7 @@ static int uvc_init_video(struct uvc_streaming *stream, gfp_t gfp_flags)
 		struct usb_host_endpoint *best_ep = NULL;
 		unsigned int best_psize = 3 * 1024;
 		unsigned int bandwidth;
-		unsigned int uninitialized_var(altsetting);
+		unsigned int altsetting = 0;
 		int intfnum = stream->intfnum;
 
 		/* Isochronous endpoint, select the alternate setting. */
