@@ -194,7 +194,7 @@ int uvc_queue_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf)
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_qbuf(&queue->queue, buf);
+	ret = vb2_qbuf(&queue->queue, NULL, buf);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
