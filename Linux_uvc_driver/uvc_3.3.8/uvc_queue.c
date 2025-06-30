@@ -63,7 +63,7 @@ static int uvc_buffer_prepare(struct vb2_buffer *vb)
 	struct uvc_video_queue *queue = vb2_get_drv_priv(vb->vb2_queue);
 	struct uvc_buffer *buf = container_of(vb, struct uvc_buffer, buf);
 
-	if (vb->v4l2_buf.type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
+	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
 	    vb2_get_plane_payload(vb, 0) > vb2_plane_size(vb, 0)) {
 		uvc_trace(UVC_TRACE_CAPTURE, "[E] Bytes used out of bounds.\n");
 		return -EINVAL;
@@ -76,7 +76,7 @@ static int uvc_buffer_prepare(struct vb2_buffer *vb)
 	buf->error = 0;
 	buf->mem = vb2_plane_vaddr(vb, 0);
 	buf->length = vb2_plane_size(vb, 0);
-	if (vb->v4l2_buf.type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+	if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		buf->bytesused = 0;
 	else
 		buf->bytesused = vb2_get_plane_payload(vb, 0);
@@ -110,8 +110,17 @@ static int uvc_buffer_finish(struct vb2_buffer *vb)
 	struct uvc_streaming *stream =
 			container_of(queue, struct uvc_streaming, queue);
 	struct uvc_buffer *buf = container_of(vb, struct uvc_buffer, buf);
+	struct v4l2_buffer v4l2_buf;
 
-	uvc_video_clock_update(stream, &vb->v4l2_buf, buf);
+	/* Initialize v4l2_buffer for compatibility with clock update function */
+	memset(&v4l2_buf, 0, sizeof(v4l2_buf));
+	v4l2_buf.timestamp = vb->timestamp;
+
+	uvc_video_clock_update(stream, &v4l2_buf, buf);
+	
+	/* Update the vb2_buffer timestamp with any changes made by clock update */
+	vb->timestamp = v4l2_buf.timestamp;
+	
 	return 0;
 }
 
