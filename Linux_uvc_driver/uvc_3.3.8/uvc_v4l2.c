@@ -1048,7 +1048,7 @@ static long uvc_v4l2_ioctl(struct file *file,
 		printk(")\n");
 	}
 
-	return uvc_v4l2_do_ioctl(file, cmd, arg);
+	return uvc_v4l2_do_ioctl(file, cmd, (void __user *)arg);
 }
 
 static ssize_t uvc_v4l2_read(struct file *file, char __user *data,
