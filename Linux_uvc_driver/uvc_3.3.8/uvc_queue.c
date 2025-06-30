@@ -165,7 +165,7 @@ int uvc_alloc_buffers(struct uvc_video_queue *queue,
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_reqbufs(&queue->queue, NULL, rb);
+	ret = vb2_reqbufs(&queue->queue, rb);
 	mutex_unlock(&queue->mutex);
 
 	return ret ? ret : rb->count;
@@ -183,7 +183,7 @@ int uvc_query_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf)
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_querybuf(&queue->queue, NULL, buf);
+	ret = vb2_querybuf(&queue->queue, buf);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -194,7 +194,7 @@ int uvc_queue_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf)
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_qbuf(&queue->queue, NULL, buf);
+	ret = vb2_qbuf(&queue->queue, buf);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -206,7 +206,7 @@ int uvc_dequeue_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf,
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_dqbuf(&queue->queue, NULL, buf, nonblocking);
+	ret = vb2_dqbuf(&queue->queue, buf, nonblocking);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -229,7 +229,7 @@ unsigned int uvc_queue_poll(struct uvc_video_queue *queue, struct file *file,
 	unsigned int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_poll(&queue->queue, NULL, file, wait);
+	ret = vb2_poll(&queue->queue, file, wait);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
