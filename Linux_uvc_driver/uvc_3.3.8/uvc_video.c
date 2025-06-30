@@ -20,6 +20,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <linux/atomic.h>
+#include <linux/time64.h>
 #include <asm/unaligned.h>
 
 #include <media/v4l2-common.h>
@@ -372,7 +373,7 @@ uvc_video_clock_decode(struct uvc_streaming *stream, struct uvc_buffer *buf,
 	bool has_pts = false;
 	bool has_scr = false;
 	unsigned long flags;
-	struct timespec ts;
+	struct timespec64 ts;
 	u16 host_sof;
 	u16 dev_sof;
 
@@ -599,7 +600,7 @@ void uvc_video_clock_update(struct uvc_streaming *stream,
 	struct uvc_clock_sample *first;
 	struct uvc_clock_sample *last;
 	unsigned long flags;
-	struct timespec ts;
+	struct timespec64 ts;
 	u32 delta_stc;
 	u32 y1, y2;
 	u32 x1, x2;
@@ -850,7 +851,7 @@ size_t uvc_video_stats_dump(struct uvc_streaming *stream, char *buf,
 {
 	unsigned int scr_sof_freq;
 	unsigned int duration;
-	struct timespec ts;
+	struct timespec64 ts;
 	size_t count = 0;
 
 	ts.tv_sec = stream->stats.stream.stop_ts.tv_sec
@@ -1001,7 +1002,7 @@ static int uvc_video_decode_start(struct uvc_streaming *stream,
 	 * when the EOF bit is set to force synchronisation on the next packet.
 	 */
 	if (buf->state != UVC_BUF_STATE_ACTIVE) {
-		struct timespec ts;
+		struct timespec64 ts;
 
 		if (fid == stream->last_fid) {
 			uvc_trace(UVC_TRACE_FRAME, "Dropping payload (out of "
