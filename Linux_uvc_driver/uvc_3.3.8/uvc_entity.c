@@ -56,8 +56,7 @@ static int uvc_mc_register_entity(struct uvc_video_chain *chain,
 			continue;
 
 		remote_pad = remote->num_pads - 1;
-		ret = media_entity_create_link(source, remote_pad,
-					       sink, i, flags);
+		ret = media_create_pad_link(&source->pads[remote_pad], &sink->pads[i], flags);
 		if (ret < 0)
 			return ret;
 	}
@@ -88,11 +87,11 @@ static int uvc_mc_init_entity(struct uvc_entity *entity)
 		strlcpy(entity->subdev.name, entity->name,
 			sizeof(entity->subdev.name));
 
-		ret = media_entity_init(&entity->subdev.entity,
-					entity->num_pads, entity->pads, 0);
+		ret = media_entity_pads_init(&entity->subdev.entity,
+					entity->num_pads, entity->pads);
 	} else if (entity->vdev != NULL) {
-		ret = media_entity_init(&entity->vdev->entity,
-					entity->num_pads, entity->pads, 0);
+		ret = media_entity_pads_init(&entity->vdev->entity,
+					entity->num_pads, entity->pads);
 	} else
 		ret = 0;
 
