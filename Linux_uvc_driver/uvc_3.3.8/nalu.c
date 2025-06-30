@@ -160,13 +160,13 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
 		
         if(pic_order_cnt_type == 0)
         {
-            int __maybe_unused log2_max_pic_order_cnt_lsb_minus4=Ue(buf,nLen,&StartBit);
+            int log2_max_pic_order_cnt_lsb_minus4 __attribute__((unused)) = Ue(buf,nLen,&StartBit);
         }
         else if(pic_order_cnt_type == 1)
         {
-            int __maybe_unused delta_pic_order_always_zero_flag=u(1,buf,&StartBit);
-            int __maybe_unused offset_for_non_ref_pic=Se(buf,nLen,&StartBit);
-            int __maybe_unused offset_for_top_to_bottom_field=Se(buf,nLen,&StartBit);
+            int delta_pic_order_always_zero_flag __attribute__((unused)) = u(1,buf,&StartBit);
+            int offset_for_non_ref_pic __attribute__((unused)) = Se(buf,nLen,&StartBit);
+            int offset_for_top_to_bottom_field __attribute__((unused)) = Se(buf,nLen,&StartBit);
             int num_ref_frames_in_pic_order_cnt_cycle=Ue(buf,nLen,&StartBit);
 #if 0
             int *offset_for_ref_frame=new int[num_ref_frames_in_pic_order_cnt_cycle];
