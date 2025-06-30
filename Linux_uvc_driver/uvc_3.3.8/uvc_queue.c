@@ -21,6 +21,7 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <media/videobuf2-vmalloc.h>
+#include <media/videobuf2-v4l2.h>
 
 #include "uvcvideo.h"
 
@@ -40,9 +41,9 @@
  * videobuf2 queue operations
  */
 
-static int uvc_queue_setup(struct vb2_queue *vq, const struct v4l2_format *fmt,
-			   unsigned int *nbuffers, unsigned int *nplanes,
-			   unsigned int sizes[], void *alloc_ctxs[])
+static int uvc_queue_setup(struct vb2_queue *vq, unsigned int *nbuffers,
+			   unsigned int *nplanes, unsigned int sizes[],
+			   struct device **alloc_devs)
 {
 	struct uvc_video_queue *queue = vb2_get_drv_priv(vq);
 	struct uvc_streaming *stream =
@@ -104,7 +105,7 @@ static void uvc_buffer_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&queue->irqlock, flags);
 }
 
-static int uvc_buffer_finish(struct vb2_buffer *vb)
+static void uvc_buffer_finish(struct vb2_buffer *vb)
 {
 	struct uvc_video_queue *queue = vb2_get_drv_priv(vb->vb2_queue);
 	struct uvc_streaming *stream =
@@ -114,14 +115,16 @@ static int uvc_buffer_finish(struct vb2_buffer *vb)
 
 	/* Initialize v4l2_buffer for compatibility with clock update function */
 	memset(&v4l2_buf, 0, sizeof(v4l2_buf));
-	v4l2_buf.timestamp = vb->timestamp;
+	
+	/* Convert u64 timestamp (nanoseconds) to v4l2_timeval */
+	v4l2_buf.timestamp.tv_sec = div_u64(vb->timestamp, NSEC_PER_SEC);
+	v4l2_buf.timestamp.tv_usec = div_u64(vb->timestamp % NSEC_PER_SEC, NSEC_PER_USEC);
 
 	uvc_video_clock_update(stream, &v4l2_buf, buf);
 	
-	/* Update the vb2_buffer timestamp with any changes made by clock update */
-	vb->timestamp = v4l2_buf.timestamp;
-	
-	return 0;
+	/* Convert v4l2_timeval back to u64 timestamp (nanoseconds) */
+	vb->timestamp = (u64)v4l2_buf.timestamp.tv_sec * NSEC_PER_SEC +
+			(u64)v4l2_buf.timestamp.tv_usec * NSEC_PER_USEC;
 }
 
 static struct vb2_ops uvc_queue_qops = {
@@ -134,13 +137,17 @@ static struct vb2_ops uvc_queue_qops = {
 void uvc_queue_init(struct uvc_video_queue *queue, enum v4l2_buf_type type,
 		    int drop_corrupted)
 {
+	int ret;
+	
 	queue->queue.type = type;
 	queue->queue.io_modes = VB2_MMAP;
 	queue->queue.drv_priv = queue;
 	queue->queue.buf_struct_size = sizeof(struct uvc_buffer);
 	queue->queue.ops = &uvc_queue_qops;
 	queue->queue.mem_ops = &vb2_vmalloc_memops;
-	vb2_queue_init(&queue->queue);
+	ret = vb2_queue_init(&queue->queue);
+	if (ret)
+		printk(KERN_ERR "uvc: Failed to initialize vb2 queue: %d\n", ret);
 
 	mutex_init(&queue->mutex);
 	spin_lock_init(&queue->irqlock);
@@ -158,7 +165,7 @@ int uvc_alloc_buffers(struct uvc_video_queue *queue,
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_reqbufs(&queue->queue, rb);
+	ret = vb2_reqbufs(&queue->queue, NULL, rb);
 	mutex_unlock(&queue->mutex);
 
 	return ret ? ret : rb->count;
@@ -176,7 +183,7 @@ int uvc_query_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf)
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_querybuf(&queue->queue, buf);
+	ret = vb2_querybuf(&queue->queue, NULL, buf);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -187,7 +194,7 @@ int uvc_queue_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf)
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_qbuf(&queue->queue, buf);
+	ret = vb2_qbuf(&queue->queue, NULL, buf);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -199,7 +206,7 @@ int uvc_dequeue_buffer(struct uvc_video_queue *queue, struct v4l2_buffer *buf,
 	int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_dqbuf(&queue->queue, buf, nonblocking);
+	ret = vb2_dqbuf(&queue->queue, NULL, buf, nonblocking);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -222,7 +229,7 @@ unsigned int uvc_queue_poll(struct uvc_video_queue *queue, struct file *file,
 	unsigned int ret;
 
 	mutex_lock(&queue->mutex);
-	ret = vb2_poll(&queue->queue, file, wait);
+	ret = vb2_poll(&queue->queue, NULL, file, wait);
 	mutex_unlock(&queue->mutex);
 
 	return ret;
@@ -255,22 +262,10 @@ int uvc_queue_allocated(struct uvc_video_queue *queue)
 unsigned long uvc_queue_get_unmapped_area(struct uvc_video_queue *queue,
 		unsigned long pgoff)
 {
-	struct uvc_buffer *buffer;
-	unsigned int i;
 	unsigned long ret;
 
 	mutex_lock(&queue->mutex);
-	for (i = 0; i < queue->count; ++i) {
-		buffer = &queue->buffer[i];
-		if ((buffer->buf.m.offset >> PAGE_SHIFT) == pgoff)
-			break;
-	}
-	if (i == queue->count) {
-		ret = -EINVAL;
-		goto done;
-	}
-	ret = (unsigned long)buf->mem;
-done:
+	ret = vb2_get_unmapped_area(&queue->queue, 0, 0, pgoff, 0);
 	mutex_unlock(&queue->mutex);
 	return ret;
 }
