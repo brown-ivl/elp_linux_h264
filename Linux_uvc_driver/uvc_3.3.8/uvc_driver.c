@@ -2409,7 +2409,7 @@ MODULE_DEVICE_TABLE(usb, uvc_ids);
 
 struct uvc_driver uvc_driver = {
 	.driver = {
-		.name		= "uvcvideo",
+		.name		= "uvcvideo_h264",
 		.probe		= uvc_probe,
 		.disconnect	= uvc_disconnect,
 		.suspend	= uvc_suspend,

@@ -119,7 +119,7 @@ int uvc_debugfs_init(void)
 {
 	struct dentry *dir;
 
-	dir = debugfs_create_dir("uvcvideo", usb_debug_root);
+	dir = debugfs_create_dir("uvcvideo_h264", usb_debug_root);
 	if (IS_ERR_OR_NULL(dir)) {
 		uvc_printk(KERN_INFO, "Unable to create debugfs directory\n");
 		return -ENODATA;
