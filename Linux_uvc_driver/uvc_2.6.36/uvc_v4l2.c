@@ -1096,7 +1096,7 @@ static int uvc_v4l2_ioctl(struct inode *inode, struct file *file,
 {
 	if (uvc_trace_param & UVC_TRACE_IOCTL) {
 		uvc_printk(KERN_DEBUG, "uvc_v4l2_ioctl(");
-		v4l_printk_ioctl(cmd);
+		v4l_printk_ioctl(NULL, cmd);
 		printk(")\n");
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
@@ -1142,7 +1142,7 @@ static int uvc_v4l2_mmap(struct file *file, struct vm_area_struct *vma)
 	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
 	struct uvc_streaming *stream = handle->stream;
 	struct uvc_video_queue *queue = &stream->queue;
-	struct uvc_buffer *uninitialized_var(buffer);
+	struct uvc_buffer *buffer = NULL;
 	struct page *page;
 	unsigned long addr, start, size;
 	unsigned int i;
@@ -1204,13 +1204,13 @@ static unsigned int uvc_v4l2_poll(struct file *file, poll_table *wait)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION (2,6,30)
 const struct v4l2_file_operations uvc_fops = {
-	.owner		= THIS_MODULE,
-	.open		= uvc_v4l2_open,
-	.release	= uvc_v4l2_release,
-	.ioctl		= uvc_v4l2_ioctl,
-	.read		= uvc_v4l2_read,
-	.mmap		= uvc_v4l2_mmap,
-	.poll		= uvc_v4l2_poll,
+    .owner		= THIS_MODULE,
+    .open		= uvc_v4l2_open,
+    .release	= uvc_v4l2_release,
+    .unlocked_ioctl = uvc_v4l2_ioctl,
+    .read		= uvc_v4l2_read,
+    .mmap		= uvc_v4l2_mmap,
+    .poll		= uvc_v4l2_poll,
 };
 #else
 struct file_operations uvc_fops = {
