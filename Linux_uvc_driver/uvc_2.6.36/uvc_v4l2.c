@@ -518,7 +518,7 @@ static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file, unsigned in
 		struct v4l2_capability *cap = arg;
 
 		memset(cap, 0, sizeof *cap);
-		strlcpy(cap->driver, "uvcvideo", sizeof cap->driver);
+		strlcpy(cap->driver, "uvcvideo_h264", sizeof cap->driver);
 		strlcpy(cap->card, vdev->name, sizeof cap->card);
 		usb_make_path(stream->dev->udev,
 			      cap->bus_info, sizeof(cap->bus_info));
