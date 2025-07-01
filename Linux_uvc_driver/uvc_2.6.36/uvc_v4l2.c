@@ -1099,7 +1099,9 @@ static int uvc_v4l2_ioctl(struct inode *inode, struct file *file,
 		v4l_printk_ioctl(NULL, cmd);
 		printk(")\n");
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+	return uvc_v4l2_do_ioctl(file, cmd, (void __user *)arg);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 	return video_usercopy(file, cmd, arg, uvc_v4l2_do_ioctl);
 #else
 	return video_usercopy(inode, file, cmd, arg, uvc_v4l2_do_ioctl);
