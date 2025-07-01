@@ -244,7 +244,7 @@ uint32_t uvc_fraction_to_interval(uint32_t numerator, uint32_t denominator)
 
 	/* Saturate the result if the operation would overflow. */
 	if (denominator == 0 ||
-	    numerator/denominator >= ((uint32_t)-1)/10000000)
+		numerator/denominator >= ((uint32_t)-1)/10000000)
 		return (uint32_t)-1;
 
 	/* Divide both the denominator and the multiplier by two until
@@ -331,9 +331,9 @@ static int uvc_parse_format(struct uvc_device *dev,
 		n = buffer[2] == UVC_VS_FORMAT_UNCOMPRESSED ? 27 : 28;
 		if (buflen < n) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d FORMAT error\n",
-			       dev->udev->devnum,
-			       alts->desc.bInterfaceNumber);
+				   "interface %d FORMAT error\n",
+				   dev->udev->devnum,
+				   alts->desc.bInterfaceNumber);
 			return -EINVAL;
 		}
 
@@ -365,9 +365,9 @@ static int uvc_parse_format(struct uvc_device *dev,
 	case UVC_VS_FORMAT_MJPEG:
 		if (buflen < 11) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d FORMAT error\n",
-			       dev->udev->devnum,
-			       alts->desc.bInterfaceNumber);
+				   "interface %d FORMAT error\n",
+				   dev->udev->devnum,
+				   alts->desc.bInterfaceNumber);
 			return -EINVAL;
 		}
 
@@ -381,9 +381,9 @@ static int uvc_parse_format(struct uvc_device *dev,
 	case UVC_VS_FORMAT_DV:
 		if (buflen < 9) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d FORMAT error\n",
-			       dev->udev->devnum,
-			       alts->desc.bInterfaceNumber);
+				   "interface %d FORMAT error\n",
+				   dev->udev->devnum,
+				   alts->desc.bInterfaceNumber);
 			return -EINVAL;
 		}
 
@@ -399,9 +399,9 @@ static int uvc_parse_format(struct uvc_device *dev,
 			break;
 		default:
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d: unknown DV format %u\n",
-			       dev->udev->devnum,
-			       alts->desc.bInterfaceNumber, buffer[8]);
+				   "interface %d: unknown DV format %u\n",
+				   dev->udev->devnum,
+				   alts->desc.bInterfaceNumber, buffer[8]);
 			return -EINVAL;
 		}
 
@@ -457,9 +457,9 @@ static int uvc_parse_format(struct uvc_device *dev,
 		/* Not supported yet. */
 	default:
 		uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-		       "interface %d unsupported format %u\n",
-		       dev->udev->devnum, alts->desc.bInterfaceNumber,
-		       buffer[2]);
+			   "interface %d unsupported format %u\n",
+			   dev->udev->devnum, alts->desc.bInterfaceNumber,
+			   buffer[2]);
 		return -EINVAL;
 	}
 
@@ -472,7 +472,7 @@ static int uvc_parse_format(struct uvc_device *dev,
 	 * based formats have frame descriptors.
 	 */
 	while (buflen > 2 && buffer[1] == USB_DT_CS_INTERFACE &&
-	       buffer[2] == ftype) {
+		   buffer[2] == ftype) {
 		frame = &format->frame[format->nframes];
 		if (ftype != UVC_VS_FRAME_FRAME_BASED)
 			n = buflen > 25 ? buffer[25] : 0;
@@ -483,8 +483,8 @@ static int uvc_parse_format(struct uvc_device *dev,
 
 		if (buflen < 26 + 4*n) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d FRAME error\n", dev->udev->devnum,
-			       alts->desc.bInterfaceNumber);
+				   "interface %d FRAME error\n", dev->udev->devnum,
+				   alts->desc.bInterfaceNumber);
 			return -EINVAL;
 		}
 
@@ -536,7 +536,7 @@ static int uvc_parse_format(struct uvc_device *dev,
 		n -= frame->bFrameIntervalType ? 1 : 2;
 		frame->dwDefaultFrameInterval =
 			min(frame->dwFrameInterval[n],
-			    max(frame->dwFrameInterval[0],
+				max(frame->dwFrameInterval[0],
 				frame->dwDefaultFrameInterval));
 
 		uvc_trace(UVC_TRACE_DESCR, "- %ux%u (%u.%u fps)\n",
@@ -550,18 +550,18 @@ static int uvc_parse_format(struct uvc_device *dev,
 	}
 
 	if (buflen > 2 && buffer[1] == USB_DT_CS_INTERFACE &&
-	    buffer[2] == UVC_VS_STILL_IMAGE_FRAME) {
+		buffer[2] == UVC_VS_STILL_IMAGE_FRAME) {
 		buflen -= buffer[0];
 		buffer += buffer[0];
 	}
 
 	if (buflen > 2 && buffer[1] == USB_DT_CS_INTERFACE &&
-	    buffer[2] == UVC_VS_COLORFORMAT) {
+		buffer[2] == UVC_VS_COLORFORMAT) {
 		if (buflen < 6) {
 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming "
-			       "interface %d COLORFORMAT error\n",
-			       dev->udev->devnum,
-			       alts->desc.bInterfaceNumber);
+				   "interface %d COLORFORMAT error\n",
+				   dev->udev->devnum,
+				   alts->desc.bInterfaceNumber);
 			return -EINVAL;
 		}
 
@@ -626,7 +626,7 @@ static int uvc_parse_streaming(struct uvc_device *dev,
 				continue;
 
 			if (ep->extralen > 2 &&
-			    ep->extra[1] == USB_DT_CS_INTERFACE) {
+				ep->extra[1] == USB_DT_CS_INTERFACE) {
 				uvc_trace(UVC_TRACE_DESCR, "trying extra data "
 					"from endpoint %u.\n", i);
 				buffer = alts->endpoint[i].extra;
@@ -759,7 +759,7 @@ static int uvc_parse_streaming(struct uvc_device *dev,
 	}
 
 	size = nformats * sizeof *format + nframes * sizeof *frame
-	     + nintervals * sizeof *interval;
+		 + nintervals * sizeof *interval;
 	format = kzalloc(size, GFP_KERNEL);
 	if (format == NULL) {
 		ret = -ENOMEM;
@@ -917,7 +917,7 @@ static int uvc_parse_vendor_control(struct uvc_device *dev,
 		unit->extension.bControlSize = buffer[22+p];
 		unit->extension.bmControls = (__u8 *)unit + sizeof(*unit);
 		unit->extension.bmControlsType = (__u8 *)unit + sizeof(*unit)
-					       + n;
+						   + n;
 		memcpy(unit->extension.bmControls, &buffer[23+p], 2*n);
 
 		if (buffer[24+p+2*n] != 0)
@@ -1035,7 +1035,7 @@ static int uvc_parse_standard_control(struct uvc_device *dev,
 			term->media.bmControls = (__u8 *)term + sizeof *term;
 			term->media.bTransportModeSize = p;
 			term->media.bmTransportModes = (__u8 *)term
-						     + sizeof *term + n;
+							 + sizeof *term + n;
 			memcpy(term->media.bmControls, &buffer[9], n);
 			memcpy(term->media.bmTransportModes, &buffer[10+n], p);
 		}
@@ -1201,7 +1201,7 @@ static int uvc_parse_control(struct uvc_device *dev)
 
 	while (buflen > 2) {
 		if (uvc_parse_vendor_control(dev, buffer, buflen) ||
-		    buffer[1] != USB_DT_CS_INTERFACE)
+			buffer[1] != USB_DT_CS_INTERFACE)
 			goto next_descriptor;
 
 		if ((ret = uvc_parse_standard_control(dev, buffer, buflen)) < 0)
@@ -1218,13 +1218,13 @@ next_descriptor:
 	 * handle the interrupt endpoint for those cameras.
 	 */
 	if (alts->desc.bNumEndpoints == 1 &&
-	    !(dev->quirks & UVC_QUIRK_BUILTIN_ISIGHT)) {
+		!(dev->quirks & UVC_QUIRK_BUILTIN_ISIGHT)) {
 		struct usb_host_endpoint *ep = &alts->endpoint[0];
 		struct usb_endpoint_descriptor *desc = &ep->desc;
 
 		if (usb_endpoint_is_int_in(desc) &&
-		    le16_to_cpu(desc->wMaxPacketSize) >= 8 &&
-		    desc->bInterval != 0) {
+			le16_to_cpu(desc->wMaxPacketSize) >= 8 &&
+			desc->bInterval != 0) {
 			uvc_trace(UVC_TRACE_DESCR, "Found a Status endpoint "
 				"(addr %02x).\n", desc->bEndpointAddress);
 			dev->int_ep = ep;
@@ -1521,7 +1521,7 @@ static unsigned int uvc_print_terms(struct list_head *terms, u16 dir,
 
 	list_for_each_entry(term, terms, chain) {
 		if (!UVC_ENTITY_IS_TERM(term) ||
-		    UVC_TERM_DIRECTION(term) != dir)
+			UVC_TERM_DIRECTION(term) != dir)
 			continue;
 
 		if (nterms)
@@ -1719,7 +1719,7 @@ static int uvc_register_video(struct uvc_device *dev,
 	 * get another one.
 	 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION (2,6,28)
-	vdev->parent = &dev->intf->dev;
+	vdev->dev_parent = &dev->intf->dev;
 #else
 	vdev->dev = &dev->intf->dev;
 #endif
@@ -1733,7 +1733,7 @@ static int uvc_register_video(struct uvc_device *dev,
 	stream->vdev = vdev;
 	video_set_drvdata(vdev, stream);
 
-	ret = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
 	if (ret < 0) {
 		uvc_printk(KERN_ERR, "Failed to register video device (%d).\n",
 			   ret);
@@ -1795,7 +1795,7 @@ static int uvc_register_chains(struct uvc_device *dev)
  */
 
 static int uvc_probe(struct usb_interface *intf,
-		     const struct usb_device_id *id)
+			 const struct usb_device_id *id)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
 	struct uvc_device *dev;
@@ -1823,7 +1823,7 @@ static int uvc_probe(struct usb_interface *intf,
 	dev->intf = usb_get_intf(intf);
 	dev->intfnum = intf->cur_altsetting->desc.bInterfaceNumber;
 	dev->quirks = (uvc_quirks_param == -1)
-		    ? id->driver_info : uvc_quirks_param;
+			? id->driver_info : uvc_quirks_param;
 
 	if (udev->product != NULL)
 		strlcpy(dev->name, udev->product, sizeof dev->name);
@@ -1907,7 +1907,7 @@ static void uvc_disconnect(struct usb_interface *intf)
 	usb_set_intfdata(intf, NULL);
 
 	if (intf->cur_altsetting->desc.bInterfaceSubClass ==
-	    UVC_SC_VIDEOSTREAMING)
+		UVC_SC_VIDEOSTREAMING)
 		return;
 
 	dev->state |= UVC_DEV_DISCONNECTED;
@@ -1925,7 +1925,7 @@ static int uvc_suspend(struct usb_interface *intf, pm_message_t message)
 
 	/* Controls are cached on the fly so they don't need to be saved. */
 	if (intf->cur_altsetting->desc.bInterfaceSubClass ==
-	    UVC_SC_VIDEOCONTROL)
+		UVC_SC_VIDEOCONTROL)
 		return uvc_status_suspend(dev);
 
 	list_for_each_entry(stream, &dev->streams, list) {
@@ -1947,7 +1947,7 @@ static int __uvc_resume(struct usb_interface *intf, int reset)
 		intf->cur_altsetting->desc.bInterfaceNumber);
 
 	if (intf->cur_altsetting->desc.bInterfaceSubClass ==
-	    UVC_SC_VIDEOCONTROL) {
+		UVC_SC_VIDEOCONTROL) {
 		if (reset) {
 			int ret = uvc_ctrl_resume_device(dev);
 
@@ -1984,7 +1984,7 @@ static int uvc_reset_resume(struct usb_interface *intf)
  * Module parameters
  */
 
-static int uvc_clock_param_get(char *buffer, struct kernel_param *kp)
+static int uvc_clock_param_get(char *buffer, const struct kernel_param *kp)
 {
 	if (uvc_clock_param == CLOCK_MONOTONIC)
 		return sprintf(buffer, "CLOCK_MONOTONIC");
@@ -1992,7 +1992,7 @@ static int uvc_clock_param_get(char *buffer, struct kernel_param *kp)
 		return sprintf(buffer, "CLOCK_REALTIME");
 }
 
-static int uvc_clock_param_set(const char *val, struct kernel_param *kp)
+static int uvc_clock_param_set(const char *val, const struct kernel_param *kp)
 {
 	if (strncasecmp(val, "clock_", strlen("clock_")) == 0)
 		val += strlen("clock_");
