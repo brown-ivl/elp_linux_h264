@@ -242,7 +242,7 @@ int uvc_queue_buffer(struct uvc_video_queue *queue,
 	uvc_trace(UVC_TRACE_CAPTURE, "Queuing buffer %u.\n", v4l2_buf->index);
 
 	if (v4l2_buf->type != queue->type ||
-	    v4l2_buf->memory != V4L2_MEMORY_MMAP) {
+		v4l2_buf->memory != V4L2_MEMORY_MMAP) {
 		uvc_trace(UVC_TRACE_CAPTURE, "[E] Invalid buffer type (%u) "
 			"and/or memory (%u).\n", v4l2_buf->type,
 			v4l2_buf->memory);
@@ -265,7 +265,7 @@ int uvc_queue_buffer(struct uvc_video_queue *queue,
 	}
 
 	if (v4l2_buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT &&
-	    v4l2_buf->bytesused > buf->buf.length) {
+		v4l2_buf->bytesused > buf->buf.length) {
 		uvc_trace(UVC_TRACE_CAPTURE, "[E] Bytes used out of bounds.\n");
 		ret = -EINVAL;
 		goto done;
@@ -318,7 +318,7 @@ int uvc_dequeue_buffer(struct uvc_video_queue *queue,
 	int ret = 0;
 
 	if (v4l2_buf->type != queue->type ||
-	    v4l2_buf->memory != V4L2_MEMORY_MMAP) {
+		v4l2_buf->memory != V4L2_MEMORY_MMAP) {
 		uvc_trace(UVC_TRACE_CAPTURE, "[E] Invalid buffer type (%u) "
 			"and/or memory (%u).\n", v4l2_buf->type,
 			v4l2_buf->memory);
@@ -343,7 +343,8 @@ int uvc_dequeue_buffer(struct uvc_video_queue *queue,
 	case UVC_BUF_STATE_ERROR:
 		uvc_trace(UVC_TRACE_CAPTURE, "[W] Corrupted data "
 			"(transmission error).\n");
-		ret = -EIO;
+	   ret = -EIO;
+	   /* fall through */
 	case UVC_BUF_STATE_DONE:
 		buf->state = UVC_BUF_STATE_IDLE;
 		break;
@@ -388,7 +389,7 @@ unsigned int uvc_queue_poll(struct uvc_video_queue *queue, struct file *file,
 
 	poll_wait(file, &buf->wait, wait);
 	if (buf->state == UVC_BUF_STATE_DONE ||
-	    buf->state == UVC_BUF_STATE_ERROR) {
+		buf->state == UVC_BUF_STATE_ERROR) {
 		if (queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
 			mask |= POLLIN | POLLRDNORM;
 		else
@@ -466,7 +467,7 @@ void uvc_queue_cancel(struct uvc_video_queue *queue, int disconnect)
 	spin_lock_irqsave(&queue->irqlock, flags);
 	while (!list_empty(&queue->irqqueue)) {
 		buf = list_first_entry(&queue->irqqueue, struct uvc_buffer,
-				       queue);
+					   queue);
 		list_del(&buf->queue);
 		buf->state = UVC_BUF_STATE_ERROR;
 		wake_up(&buf->wait);
@@ -489,7 +490,7 @@ struct uvc_buffer *uvc_queue_next_buffer(struct uvc_video_queue *queue,
 	unsigned long flags;
 
 	if ((queue->flags & UVC_QUEUE_DROP_INCOMPLETE) &&
-	    buf->buf.length != buf->buf.bytesused) {
+		buf->buf.length != buf->buf.bytesused) {
 		buf->state = UVC_BUF_STATE_QUEUED;
 		buf->buf.bytesused = 0;
 		return buf;
