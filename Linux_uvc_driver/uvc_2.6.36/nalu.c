@@ -117,6 +117,10 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
         int profile_idc, constraint_set0_flag, constraint_set1_flag, constraint_set2_flag, constraint_set3_flag, reserved_zero_4bits, level_idc;
         int seq_parameter_set_id, log2_max_frame_num_minus4, pic_order_cnt_type;
         int num_ref_frames, gaps_in_frame_num_value_allowed_flag, pic_width_in_mbs_minus1, pic_height_in_map_units_minus1;
+        /* Additional variables for C90 compliance */
+        int num_ref_frames_in_pic_order_cnt_cycle = 0;
+        int offset_for_ref_frame = 0;
+        int i = 0;
         
         profile_idc=u(8,buf,&StartBit);
         constraint_set0_flag=u(1,buf,&StartBit);//(buf[1] & 0x80)>>7;
@@ -157,11 +161,6 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
         
         log2_max_frame_num_minus4=Ue(buf,nLen,&StartBit);
         pic_order_cnt_type=Ue(buf,nLen,&StartBit);
-
-        /* Predeclare variables for C90 compliance */
-        int num_ref_frames_in_pic_order_cnt_cycle = 0;
-        int offset_for_ref_frame = 0;
-        int i = 0;
 
         if(pic_order_cnt_type == 0)
         {
