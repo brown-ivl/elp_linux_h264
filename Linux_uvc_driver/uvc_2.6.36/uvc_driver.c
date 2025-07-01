@@ -39,7 +39,7 @@
 #include "uvcvideo.h"
 
 #define DRIVER_AUTHOR		"Laurent Pinchart <laurent.pinchart@skynet.be>"
-#define DRIVER_DESC		"USB Video Class driver"
+#define DRIVER_DESC		"USB Video Class H264 driver"
 
 #ifndef DRIVER_VERSION
 
