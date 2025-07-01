@@ -171,16 +171,17 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
             Se(buf,nLen,&StartBit);
             /* int offset_for_top_to_bottom_field=Se(buf,nLen,&StartBit); */
             Se(buf,nLen,&StartBit);
-            int num_ref_frames_in_pic_order_cnt_cycle=Ue(buf,nLen,&StartBit);
-#if 0
-            int *offset_for_ref_frame=new int[num_ref_frames_in_pic_order_cnt_cycle];
-            for(int i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++)
-                offset_for_ref_frame[i]=Se(buf,nLen,&StartBit);
-
-            delete [] offset_for_ref_frame;
-#else
+            int num_ref_frames_in_pic_order_cnt_cycle;
             int offset_for_ref_frame = 0;
             int i = 0;
+            num_ref_frames_in_pic_order_cnt_cycle = Ue(buf,nLen,&StartBit);
+#if 0
+            int *offset_for_ref_frame_arr=new int[num_ref_frames_in_pic_order_cnt_cycle];
+            for(i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++)
+                offset_for_ref_frame_arr[i]=Se(buf,nLen,&StartBit);
+
+            delete [] offset_for_ref_frame_arr;
+#else
             for(i = 0; i < num_ref_frames_in_pic_order_cnt_cycle; i++)
                 offset_for_ref_frame =Se(buf,nLen,&StartBit);
 #endif
