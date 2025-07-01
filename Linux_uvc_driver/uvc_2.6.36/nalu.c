@@ -158,6 +158,10 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
         log2_max_frame_num_minus4=Ue(buf,nLen,&StartBit);
         pic_order_cnt_type=Ue(buf,nLen,&StartBit);
         
+        /* Predeclare variables for C90 compliance */
+        int num_ref_frames_in_pic_order_cnt_cycle = 0;
+        int offset_for_ref_frame = 0;
+        int i = 0;
         if(pic_order_cnt_type == 0)
         {
             /* int log2_max_pic_order_cnt_lsb_minus4=Ue(buf,nLen,&StartBit); */
@@ -171,9 +175,6 @@ bool h264_decode_seq_parameter_set(unsigned char * buf, unsigned int nLen, int *
             Se(buf,nLen,&StartBit);
             /* int offset_for_top_to_bottom_field=Se(buf,nLen,&StartBit); */
             Se(buf,nLen,&StartBit);
-            int num_ref_frames_in_pic_order_cnt_cycle;
-            int offset_for_ref_frame = 0;
-            int i = 0;
             num_ref_frames_in_pic_order_cnt_cycle = Ue(buf,nLen,&StartBit);
 #if 0
             int *offset_for_ref_frame_arr=new int[num_ref_frames_in_pic_order_cnt_cycle];
