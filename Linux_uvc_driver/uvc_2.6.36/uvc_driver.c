@@ -2333,7 +2333,11 @@ static int __init uvc_init(void)
 
 	uvc_ctrl_init();
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+	result = usb_register_driver(&uvc_driver.driver, THIS_MODULE, KBUILD_MODNAME);
+#else
 	result = usb_register(&uvc_driver.driver);
+#endif
 	if (result == 0)
 		printk(KERN_INFO DRIVER_DESC " (" DRIVER_VERSION ")\n");
 	return result;
@@ -2341,7 +2345,11 @@ static int __init uvc_init(void)
 
 static void __exit uvc_cleanup(void)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+	usb_deregister_driver(&uvc_driver.driver);
+#else
 	usb_deregister(&uvc_driver.driver);
+#endif
 }
 
 module_init(uvc_init);
