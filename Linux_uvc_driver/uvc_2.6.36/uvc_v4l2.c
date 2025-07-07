@@ -498,437 +498,126 @@ static int uvc_v4l2_release(struct inode *inode, struct file *file)
 }
 
 /* ------------------------------------------------------------------------
- * V4L2 ioctl handlers for modern kernels (5.10+)
+ * V4L2 ioctl handlers (wrapper functions for kernel 5.10+ compatibility)
  */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 
-static int uvc_query_cap(struct file *file, void *fh, struct v4l2_capability *cap)
-{
-	struct video_device *vdev = video_devdata(file);
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
+/* These wrapper functions adapt the legacy ioctl implementation to the new v4l2_ioctl_ops interface */
 
-	memset(cap, 0, sizeof *cap);
-	strlcpy(cap->driver, "uvcvideo_h264", sizeof cap->driver);
-	strlcpy(cap->card, vdev->name, sizeof cap->card);
-	usb_make_path(stream->dev->udev, cap->bus_info, sizeof(cap->bus_info));
-	cap->version = DRIVER_VERSION_NUMBER;
-	if (stream->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
-		cap->capabilities = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
-	else
-		cap->capabilities = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
-	
-	return 0;
+static int uvc_vidioc_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
+{
+	return uvc_v4l2_do_ioctl(file, VIDIOC_QUERYCAP, cap);
 }
 
-static int uvc_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *qc)
+static int uvc_vidioc_enum_fmt_vid_cap(struct file *file, void *fh, struct v4l2_fmtdesc *fmt)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	
-	return uvc_query_v4l2_ctrl(chain, qc);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_ENUM_FMT, fmt);
 }
 
-static int uvc_g_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
+static int uvc_vidioc_g_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	struct v4l2_ext_control xctrl;
-	int ret;
-
-	memset(&xctrl, 0, sizeof xctrl);
-	xctrl.id = ctrl->id;
-
-	ret = uvc_ctrl_begin(chain);
-	if (ret < 0)
-		return ret;
-
-	ret = uvc_ctrl_get(chain, &xctrl);
-	uvc_ctrl_rollback(chain);
-	if (ret >= 0)
-		ctrl->value = xctrl.value;
-
-	return ret;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_G_FMT, fmt);
 }
 
-static int uvc_s_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
+static int uvc_vidioc_s_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	struct v4l2_ext_control xctrl;
-	int ret;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	memset(&xctrl, 0, sizeof xctrl);
-	xctrl.id = ctrl->id;
-	xctrl.value = ctrl->value;
-
-	ret = uvc_ctrl_begin(chain);
-	if (ret < 0)
-		return ret;
-
-	ret = uvc_ctrl_set(chain, &xctrl);
-	if (ret < 0) {
-		uvc_ctrl_rollback(chain);
-		return ret;
-	}
-	ret = uvc_ctrl_commit(chain);
-
-	return ret;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_S_FMT, fmt);
 }
 
-static int uvc_enum_input(struct file *file, void *fh, struct v4l2_input *input)
+static int uvc_vidioc_try_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	const struct uvc_entity *selector = chain->selector;
-	struct uvc_entity *iterm = NULL;
-	u32 index = input->index;
-	int pin = 0;
-
-	if (selector == NULL ||
-	    (chain->dev->quirks & UVC_QUIRK_IGNORE_SELECTOR_UNIT)) {
-		if (index != 0)
-			return -EINVAL;
-		list_for_each_entry(iterm, &chain->entities, chain) {
-			if (UVC_ENTITY_TYPE(iterm) == UVC_ITT_CAMERA) {
-				break;
-			}
-		}
-		pin = iterm ? iterm->id : 0;
-	} else {
-		if (index >= selector->bNrInPins)
-			return -EINVAL;
-		pin = selector->baSourceID[index];
-		list_for_each_entry(iterm, &chain->entities, chain) {
-			if (!UVC_ENTITY_IS_ITERM(iterm))
-				continue;
-			if (iterm->id == pin)
-				break;
-		}
-	}
-
-	if (iterm == NULL || iterm->id != pin)
-		return -EINVAL;
-
-	memset(input, 0, sizeof *input);
-	input->index = index;
-	strlcpy(input->name, iterm->name, sizeof input->name);
-	if (UVC_ENTITY_TYPE(iterm) == UVC_ITT_CAMERA)
-		input->type = V4L2_INPUT_TYPE_CAMERA;
-
-	return 0;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_TRY_FMT, fmt);
 }
 
-static int uvc_g_input(struct file *file, void *fh, unsigned int *input)
+static int uvc_vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffers *rb)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	int ret;
-	u8 i;
-
-	if (chain->selector == NULL ||
-	    (chain->dev->quirks & UVC_QUIRK_IGNORE_SELECTOR_UNIT)) {
-		*input = 0;
-		return 0;
-	}
-
-	ret = uvc_query_ctrl(chain->dev, UVC_GET_CUR, chain->selector->id,
-			     chain->dev->intfnum, UVC_SU_INPUT_SELECT_CONTROL,
-			     &i, 1);
-	if (ret < 0)
-		return ret;
-
-	*input = i - 1;
-	return 0;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_REQBUFS, rb);
 }
 
-static int uvc_s_input(struct file *file, void *fh, unsigned int input)
+static int uvc_vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	int ret;
-	u32 i;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	if (chain->selector == NULL ||
-	    (chain->dev->quirks & UVC_QUIRK_IGNORE_SELECTOR_UNIT)) {
-		if (input)
-			return -EINVAL;
-		return 0;
-	}
-
-	if (input >= chain->selector->bNrInPins)
-		return -EINVAL;
-
-	i = input + 1;
-	return uvc_query_ctrl(chain->dev, UVC_SET_CUR, chain->selector->id,
-			      chain->dev->intfnum, UVC_SU_INPUT_SELECT_CONTROL,
-			      &i, 1);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_QUERYBUF, buf);
 }
 
-static int uvc_enum_fmt_vid_cap(struct file *file, void *fh, struct v4l2_fmtdesc *fmt)
+static int uvc_vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	if (fmt->index >= stream->nformats)
-		return -EINVAL;
-
-	if (fmt->type != stream->type)
-		return -EINVAL;
-
-	if (stream->format[fmt->index].flags & UVC_FMT_FLAG_COMPRESSED)
-		fmt->flags = V4L2_FMT_FLAG_COMPRESSED;
-	fmt->pixelformat = stream->format[fmt->index].fcc;
-	strlcpy(fmt->description, stream->format[fmt->index].name,
-		sizeof fmt->description);
-	fmt->description[sizeof fmt->description - 1] = 0;
-	return 0;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_QBUF, buf);
 }
 
-static int uvc_g_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
+static int uvc_vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	return uvc_v4l2_get_format(stream, fmt);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_DQBUF, buf);
 }
 
-static int uvc_s_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
+static int uvc_vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-	int ret;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	return uvc_v4l2_set_format(stream, fmt);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_STREAMON, &type);
 }
 
-static int uvc_try_fmt_vid_cap(struct file *file, void *fh, struct v4l2_format *fmt)
+static int uvc_vidioc_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-	struct uvc_streaming_control probe;
-
-	return uvc_v4l2_try_format(stream, fmt, &probe, NULL, NULL);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_STREAMOFF, &type);
 }
 
-static int uvc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffers *rb)
+static int uvc_vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *input)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-	unsigned int bufsize = stream->ctrl.dwMaxVideoFrameSize;
-	int ret;
-
-	if (rb->type != stream->type || rb->memory != V4L2_MEMORY_MMAP)
-		return -EINVAL;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	ret = uvc_alloc_buffers(&stream->queue, rb->count, bufsize);
-	if (ret < 0)
-		return ret;
-
-	if (ret == 0)
-		uvc_dismiss_privileges(handle);
-
-	rb->count = ret;
-	return 0;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_ENUMINPUT, input);
 }
 
-static int uvc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
+static int uvc_vidioc_g_input(struct file *file, void *fh, unsigned int *input)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	if (!uvc_has_privileges(handle))
-		return -EBUSY;
-
-	return uvc_query_buffer(&stream->queue, buf);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_G_INPUT, input);
 }
 
-static int uvc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
+static int uvc_vidioc_s_input(struct file *file, void *fh, unsigned int input)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	if (!uvc_has_privileges(handle))
-		return -EBUSY;
-
-	return uvc_queue_buffer(&stream->queue, buf);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_S_INPUT, &input);
 }
 
-static int uvc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
+static int uvc_vidioc_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *qc)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	if (!uvc_has_privileges(handle))
-		return -EBUSY;
-
-	return uvc_dequeue_buffer(&stream->queue, buf,
-				  file->f_flags & O_NONBLOCK);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_QUERYCTRL, qc);
 }
 
-static int uvc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
+static int uvc_vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-	int ret;
-
-	if (type != stream->type)
-		return -EINVAL;
-
-	if (!uvc_has_privileges(handle))
-		return -EBUSY;
-
-	ret = uvc_queue_enable(&stream->queue, 1);
-	if (ret < 0)
-		return ret;
-
-	return uvc_video_enable(stream, 1);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_G_CTRL, ctrl);
 }
 
-static int uvc_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
+static int uvc_vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	if (type != stream->type)
-		return -EINVAL;
-
-	if (!uvc_has_privileges(handle))
-		return -EBUSY;
-
-	uvc_video_enable(stream, 0);
-	uvc_queue_enable(&stream->queue, 0);
-	return 0;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_S_CTRL, ctrl);
 }
 
-static int uvc_g_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
+static int uvc_vidioc_g_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	struct v4l2_ext_control *ctrl = ctrls->controls;
-	unsigned int i;
-	int ret;
-
-	ret = uvc_ctrl_begin(chain);
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < ctrls->count; ++ctrl, ++i) {
-		ret = uvc_ctrl_get(chain, ctrl);
-		if (ret < 0) {
-			uvc_ctrl_rollback(chain);
-			ctrls->error_idx = i;
-			return ret;
-		}
-	}
-	ctrls->error_idx = 0;
-	ret = uvc_ctrl_rollback(chain);
-
-	return ret;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_G_EXT_CTRLS, ctrls);
 }
 
-static int uvc_s_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
+static int uvc_vidioc_s_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	struct v4l2_ext_control *ctrl = ctrls->controls;
-	unsigned int i;
-	int ret;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	ret = uvc_ctrl_begin(chain);
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < ctrls->count; ++ctrl, ++i) {
-		ret = uvc_ctrl_set(chain, ctrl);
-		if (ret < 0) {
-			uvc_ctrl_rollback(chain);
-			ctrls->error_idx = i;
-			return ret;
-		}
-	}
-
-	ctrls->error_idx = 0;
-	ret = uvc_ctrl_commit(chain);
-
-	return ret;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_S_EXT_CTRLS, ctrls);
 }
 
-static int uvc_try_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
+static int uvc_vidioc_try_ext_ctrls(struct file *file, void *fh, struct v4l2_ext_controls *ctrls)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-	struct v4l2_ext_control *ctrl = ctrls->controls;
-	unsigned int i;
-	int ret;
-
-	ret = uvc_ctrl_begin(chain);
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < ctrls->count; ++ctrl, ++i) {
-		ret = uvc_ctrl_set(chain, ctrl);
-		if (ret < 0) {
-			uvc_ctrl_rollback(chain);
-			ctrls->error_idx = i;
-			return ret;
-		}
-	}
-
-	ctrls->error_idx = 0;
-	ret = uvc_ctrl_rollback(chain);
-
-	return ret;
+	return uvc_v4l2_do_ioctl(file, VIDIOC_TRY_EXT_CTRLS, ctrls);
 }
 
-static int uvc_querymenu(struct file *file, void *fh, struct v4l2_querymenu *qm)
+static int uvc_vidioc_querymenu(struct file *file, void *fh, struct v4l2_querymenu *qm)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_video_chain *chain = handle->chain;
-
-	return uvc_v4l2_query_menu(chain, qm);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_QUERYMENU, qm);
 }
 
-static int uvc_g_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
+static int uvc_vidioc_g_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-
-	return uvc_v4l2_get_streamparm(stream, parm);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_G_PARM, parm);
 }
 
-static int uvc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
+static int uvc_vidioc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
 {
-	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
-	struct uvc_streaming *stream = handle->stream;
-	int ret;
-
-	ret = uvc_acquire_privileges(handle);
-	if (ret < 0)
-		return ret;
-
-	return uvc_v4l2_set_streamparm(stream, parm);
+	return uvc_v4l2_do_ioctl(file, VIDIOC_S_PARM, parm);
 }
 
 #endif /* KERNEL_VERSION >= 5.10.0 */
@@ -936,8 +625,6 @@ static int uvc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
 /* ------------------------------------------------------------------------
  * Legacy ioctl interface
  */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 static long uvc_v4l2_do_ioctl(struct file *file, unsigned int cmd, void *arg)
@@ -1519,7 +1206,6 @@ static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file, unsigned in
 
 	return ret;
 }
-#endif
 
 #if LINUX_VERSION_CODE == KERNEL_VERSION(2, 6, 28)
 static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file,
@@ -1652,29 +1338,29 @@ static unsigned int uvc_v4l2_poll(struct file *file, poll_table *wait)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 /* V4L2 ioctl operations for modern kernels */
 const struct v4l2_ioctl_ops uvc_ioctl_ops = {
-	.vidioc_querycap = uvc_query_cap,
-	.vidioc_enum_fmt_vid_cap = uvc_enum_fmt_vid_cap,
-	.vidioc_g_fmt_vid_cap = uvc_g_fmt_vid_cap,
-	.vidioc_s_fmt_vid_cap = uvc_s_fmt_vid_cap,
-	.vidioc_try_fmt_vid_cap = uvc_try_fmt_vid_cap,
-	.vidioc_reqbufs = uvc_reqbufs,
-	.vidioc_querybuf = uvc_querybuf,
-	.vidioc_qbuf = uvc_qbuf,
-	.vidioc_dqbuf = uvc_dqbuf,
-	.vidioc_streamon = uvc_streamon,
-	.vidioc_streamoff = uvc_streamoff,
-	.vidioc_enum_input = uvc_enum_input,
-	.vidioc_g_input = uvc_g_input,
-	.vidioc_s_input = uvc_s_input,
-	.vidioc_queryctrl = uvc_queryctrl,
-	.vidioc_g_ctrl = uvc_g_ctrl,
-	.vidioc_s_ctrl = uvc_s_ctrl,
-	.vidioc_g_ext_ctrls = uvc_g_ext_ctrls,
-	.vidioc_s_ext_ctrls = uvc_s_ext_ctrls,
-	.vidioc_try_ext_ctrls = uvc_try_ext_ctrls,
-	.vidioc_querymenu = uvc_querymenu,
-	.vidioc_g_parm = uvc_g_parm,
-	.vidioc_s_parm = uvc_s_parm,
+	.vidioc_querycap = uvc_vidioc_querycap,
+	.vidioc_enum_fmt_vid_cap = uvc_vidioc_enum_fmt_vid_cap,
+	.vidioc_g_fmt_vid_cap = uvc_vidioc_g_fmt_vid_cap,
+	.vidioc_s_fmt_vid_cap = uvc_vidioc_s_fmt_vid_cap,
+	.vidioc_try_fmt_vid_cap = uvc_vidioc_try_fmt_vid_cap,
+	.vidioc_reqbufs = uvc_vidioc_reqbufs,
+	.vidioc_querybuf = uvc_vidioc_querybuf,
+	.vidioc_qbuf = uvc_vidioc_qbuf,
+	.vidioc_dqbuf = uvc_vidioc_dqbuf,
+	.vidioc_streamon = uvc_vidioc_streamon,
+	.vidioc_streamoff = uvc_vidioc_streamoff,
+	.vidioc_enum_input = uvc_vidioc_enum_input,
+	.vidioc_g_input = uvc_vidioc_g_input,
+	.vidioc_s_input = uvc_vidioc_s_input,
+	.vidioc_queryctrl = uvc_vidioc_queryctrl,
+	.vidioc_g_ctrl = uvc_vidioc_g_ctrl,
+	.vidioc_s_ctrl = uvc_vidioc_s_ctrl,
+	.vidioc_g_ext_ctrls = uvc_vidioc_g_ext_ctrls,
+	.vidioc_s_ext_ctrls = uvc_vidioc_s_ext_ctrls,
+	.vidioc_try_ext_ctrls = uvc_vidioc_try_ext_ctrls,
+	.vidioc_querymenu = uvc_vidioc_querymenu,
+	.vidioc_g_parm = uvc_vidioc_g_parm,
+	.vidioc_s_parm = uvc_vidioc_s_parm,
 };
 
 const struct v4l2_file_operations uvc_fops = {
