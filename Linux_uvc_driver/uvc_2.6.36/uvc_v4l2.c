@@ -937,11 +937,13 @@ static int uvc_s_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
  * Legacy ioctl interface
  */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30) && LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 static long uvc_v4l2_do_ioctl(struct file *file, unsigned int cmd, void *arg)
 #elif LINUX_VERSION_CODE == KERNEL_VERSION(2,6,28) 
 static int __uvc_v4l2_do_ioctl(struct file *file, unsigned int cmd, void *arg)
-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+#else
 static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file, unsigned int cmd, void *arg)
 #endif
 {
@@ -1509,7 +1511,6 @@ static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file, unsigned in
 		if ((ret = v4l_compat_translate_ioctl(file, cmd, arg, __uvc_v4l2_do_ioctl)) == -ENOIOCTLCMD)
 	#else
 		if ((ret = v4l_compat_translate_ioctl(inode, file, cmd, arg, uvc_v4l2_do_ioctl)) == -ENOIOCTLCMD)	
-	#endif	
 	#endif	
 			uvc_trace(UVC_TRACE_IOCTL, "Unknown ioctl 0x%08x\n",
 				  cmd);
