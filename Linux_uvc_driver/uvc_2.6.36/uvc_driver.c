@@ -1724,6 +1724,13 @@ static int uvc_register_video(struct uvc_device *dev,
 	vdev->dev = &dev->intf->dev;
 #endif
 	vdev->fops = &uvc_fops;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+	vdev->ioctl_ops = &uvc_ioctl_ops;
+	if (stream->type == V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_STREAMING;
+	else
+		vdev->device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_STREAMING;
+#endif
 	vdev->release = uvc_release;
 	strlcpy(vdev->name, dev->name, sizeof vdev->name);
 

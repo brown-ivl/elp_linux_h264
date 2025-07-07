@@ -1368,7 +1368,10 @@ static inline int uvc_queue_streaming(struct uvc_video_queue *queue)
 }
 
 /* V4L2 interface */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION (2,6,30)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+extern const struct v4l2_file_operations uvc_fops;
+extern const struct v4l2_ioctl_ops uvc_ioctl_ops;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION (2,6,30)
 extern const struct v4l2_file_operations uvc_fops;
 #else
 extern struct file_operations uvc_fops;
