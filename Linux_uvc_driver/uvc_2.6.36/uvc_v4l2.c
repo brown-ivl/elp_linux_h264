@@ -552,7 +552,7 @@ static int uvc_g_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 	return ret;
 }
 
-static int uvc_s_ctrl(struct file *file, void *fh, const struct v4l2_control *ctrl)
+static int uvc_s_ctrl(struct file *file, void *fh, struct v4l2_control *ctrl)
 {
 	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
 	struct uvc_video_chain *chain = handle->chain;
@@ -728,13 +728,25 @@ static int uvc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffers *
 {
 	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
 	struct uvc_streaming *stream = handle->stream;
+	unsigned int bufsize = stream->ctrl.dwMaxVideoFrameSize;
 	int ret;
+
+	if (rb->type != stream->type || rb->memory != V4L2_MEMORY_MMAP)
+		return -EINVAL;
 
 	ret = uvc_acquire_privileges(handle);
 	if (ret < 0)
 		return ret;
 
-	return uvc_alloc_buffers(&stream->queue, rb);
+	ret = uvc_alloc_buffers(&stream->queue, rb->count, bufsize);
+	if (ret < 0)
+		return ret;
+
+	if (ret == 0)
+		uvc_dismiss_privileges(handle);
+
+	rb->count = ret;
+	return 0;
 }
 
 static int uvc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
@@ -895,7 +907,7 @@ static int uvc_querymenu(struct file *file, void *fh, struct v4l2_querymenu *qm)
 	struct uvc_fh *handle = (struct uvc_fh *)file->private_data;
 	struct uvc_video_chain *chain = handle->chain;
 
-	return uvc_query_v4l2_menu(chain, qm);
+	return uvc_v4l2_query_menu(chain, qm);
 }
 
 static int uvc_g_parm(struct file *file, void *fh, struct v4l2_streamparm *parm)
@@ -1514,13 +1526,14 @@ static int uvc_v4l2_do_ioctl(struct inode *inode, struct file *file,
 }
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0) && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,30)
 static long uvc_v4l2_ioctl(struct file *file,
 		     unsigned int cmd, unsigned long arg)
-#else		     
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
 static int uvc_v4l2_ioctl(struct inode *inode, struct file *file,
 		     unsigned int cmd, unsigned long arg)
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,10,0)
 {
 	if (uvc_trace_param & UVC_TRACE_IOCTL) {
 		uvc_printk(KERN_DEBUG, "uvc_v4l2_ioctl(");
@@ -1535,6 +1548,7 @@ static int uvc_v4l2_ioctl(struct inode *inode, struct file *file,
 	return video_usercopy(inode, file, cmd, arg, uvc_v4l2_do_ioctl);
 #endif
 }
+#endif
 
 static ssize_t uvc_v4l2_read(struct file *file, char __user *data,
 		    size_t count, loff_t *ppos)
@@ -1634,7 +1648,7 @@ static unsigned int uvc_v4l2_poll(struct file *file, poll_table *wait)
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 /* V4L2 ioctl operations for modern kernels */
-static const struct v4l2_ioctl_ops uvc_ioctl_ops = {
+const struct v4l2_ioctl_ops uvc_ioctl_ops = {
 	.vidioc_querycap = uvc_query_cap,
 	.vidioc_enum_fmt_vid_cap = uvc_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap = uvc_g_fmt_vid_cap,
